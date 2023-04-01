@@ -5,7 +5,10 @@ import (
 	"log"
 	"fmt"
 )
-type Config interface{}
+type Config interface{
+	Dsn()
+	DbName()
+}
 
 type config struct {
 	dbUser string
@@ -25,7 +28,7 @@ func NewConfig() Config{
 	var err error
 	cfg.dbPort, err = strconv.Atoi(os.Getenv("DATABASE_PORT"))
 	if err != nil {
-		log.Fatalln("Error on load env var :", err.Error())
+		log.Fatalln("Error on load env var:", err.Error())
 	}
 	cfg.dsn = fmt.Sprintf("mongodb://%s:%s@%s:%d/%s", cfg.dbUser, cfg.dbPass, cfg.dbHost, cfg.dbPort, cfg.dbName)
 	return &cfg
