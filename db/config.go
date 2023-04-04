@@ -1,25 +1,27 @@
 package db
+
 import (
+	"fmt"
+	"log"
 	"os"
 	"strconv"
-	"log"
-	"fmt"
 )
-type Config interface{
-	Dsn()
-	DbName()
+
+type Config interface {
+	Dsn() string
+	DbName() string
 }
 
 type config struct {
 	dbUser string
 	dbPass string
 	dbHost string
-	dbPort int 
+	dbPort int
 	dbName string
-	dsn string
+	dsn    string
 }
 
-func NewConfig() Config{ 
+func NewConfig() Config {
 	var cfg config
 	cfg.dbUser = os.Getenv("DATABASE_USER")
 	cfg.dbPass = os.Getenv("DATABASE_PASS")
@@ -34,7 +36,7 @@ func NewConfig() Config{
 	return &cfg
 }
 
-func ( c *config) Dsn() string { 
+func (c *config) Dsn() string {
 	return c.dsn
 }
 
