@@ -31,7 +31,9 @@ func NewConfig() Config {
 	if err != nil {
 		log.Fatalln("Error on load env var:", err.Error())
 	}
-	cfg.dsn = fmt.Sprintf("mongodb://%s:%s@%s:%s/%s", cfg.dbUser, cfg.dbPass, cfg.dbHost, cfg.dbPort, cfg.dbName)
+	//mongodb: //mongoadmin:password1@0.0.0.0:3005/
+	//cfg.dsn = fmt.Sprintf("mongodb://%s:%s@%s:%s/", cfg.dbUser, cfg.dbPass, cfg.dbHost, cfg.dbPort)
+	cfg.dsn = fmt.Sprintf("mongodb://mongoadmin:password1@0.0.0.0:%v/", cfg.dbPort)
 	return &cfg
 }
 
