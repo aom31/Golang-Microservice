@@ -1,3 +1,3 @@
-package constant
+package constants
 
 const Collection_USER = "Users"

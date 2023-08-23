@@ -1,16 +1,20 @@
 package repository
 
 import (
-	"golang-microservice/constant"
+	"context"
+	"errors"
+	"fmt"
+	"golang-microservice/config"
+	"golang-microservice/constants"
 	"golang-microservice/db"
 	"golang-microservice/model"
 
-	"gopkg.in/mgo.v2"
+	"go.mongodb.org/mongo-driver/mongo"
 	"gopkg.in/mgo.v2/bson"
 )
 
 type IUserRepository interface {
-	Save(user *model.User) error
+	Save(user *model.User) (string, error)
 	GetById(id string) (*model.User, error)
 	GetByEmail(email string) (user *model.User, err error)
 	GetAll() (users []*model.User, err error)
@@ -19,44 +23,83 @@ type IUserRepository interface {
 }
 
 type userRepository struct {
-	mgcollec *mgo.Collection
+	Client *mongo.Client
+	Cfg    *config.Config
 }
 
-func NewUserRepository(conn db.Connection) IUserRepository {
+func NewUserRepository(Client *mongo.Client, Cfg *config.Config) IUserRepository {
 	return &userRepository{
-		mgcollec: conn.DB().C(constant.Collection_USER),
+		Client: Client,
+		Cfg:    Cfg,
 	}
 }
 
-func (repo *userRepository) Save(user *model.User) error {
-	return repo.mgcollec.Insert(&user)
+func (repo *userRepository) getCollectionUser() *mongo.Collection {
+	db := db.DBConn(repo.Cfg)
+	userCollection := db.Database(repo.Cfg.DB.DBName).Collection(constants.Collection_USER)
+
+	return userCollection
+}
+
+func (repo *userRepository) Save(user *model.User) (string, error) {
+	insertResult, err := repo.getCollectionUser().InsertOne(context.Background(), &user)
+	if err != nil {
+		return "", err
+	}
+	idInserted := fmt.Sprintf("%v", insertResult.InsertedID)
+
+	return idInserted, nil
 
 }
 
 func (repo *userRepository) GetById(id string) (user *model.User, err error) {
-	err = repo.mgcollec.FindId(bson.ObjectIdHex(id)).One(&user)
-	return user, err
+
+	filter := bson.ObjectIdHex(id)
+
+	if err := repo.getCollectionUser().FindOne(context.Background(), filter).Decode(&user); err != nil {
+		return &model.User{}, err
+	}
+
+	return user, nil
 }
 
 func (repo *userRepository) GetByEmail(email string) (user *model.User, err error) {
-	query := bson.M{
+	filter := bson.M{
 		"email": email,
 	}
-	err = repo.mgcollec.Find(query).One(&user)
-	return user, err
+	if err := repo.getCollectionUser().FindOne(context.Background(), filter).Decode(&user); err != nil {
+		return &model.User{}, err
+	}
+
+	return user, nil
 }
 
 func (repo *userRepository) GetAll() (users []*model.User, err error) {
-
-	err = repo.mgcollec.Find(bson.M{}).One(&users)
+	var user *model.User
+	cursor, err := repo.getCollectionUser().Find(context.Background(), bson.D{})
+	if err != nil {
+		defer cursor.Close(context.Background())
+		return nil, err
+	}
+	for cursor.Next(context.Background()) {
+		if err := cursor.Decode(&user); err != nil {
+			return users, errors.New("user not found")
+		}
+		users = append(users, user)
+	}
 	return users, err
 }
 
 func (repo *userRepository) UpdateUser(user *model.User) error {
 
-	return repo.mgcollec.UpdateId(user.Id, user)
+	_, err := repo.getCollectionUser().UpdateOne(context.Background(), user.Id, user)
+	return err
 }
 
 func (repo *userRepository) DeleteUserById(id string) error {
-	return repo.mgcollec.RemoveId(bson.ObjectIdHex(id))
+	_, err := repo.getCollectionUser().DeleteOne(context.Background(), bson.ObjectIdHex(id))
+	if err != nil {
+		return err
+	}
+	return nil
 }

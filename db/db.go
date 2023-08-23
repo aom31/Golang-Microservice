@@ -1,34 +1,31 @@
 package db
 
 import (
-	"fmt"
+	"golang-microservice/config"
+	"log"
+	"time"
 
-	"gopkg.in/mgo.v2"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
+	"golang.org/x/net/context"
 )
 
-type Connection interface {
-	Close()
-	DB() *mgo.Database
-}
+func DBConn(cfg *config.Config) *mongo.Client {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel()
 
-type conn struct {
-	session  *mgo.Session
-	database *mgo.Database
-}
-
-func NewConnection(cfg Config) (Connection, error) {
-	fmt.Println("Success Connected database url:", cfg.Dsn())
-	session, err := mgo.Dial(cfg.Dsn())
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(cfg.DB.DBUrl))
 	if err != nil {
-		return nil, err
+		log.Fatalf("failed connect to mongodb with %v", cfg.DB.DBUrl)
 	}
-	return &conn{session: session, database: session.DB(cfg.DbName())}, nil
-}
 
-func (c *conn) Close() {
-	c.session.Close()
-}
+	//ping check db
+	if err := client.Ping(ctx, readpref.Primary()); err != nil {
+		log.Fatalf("failed to ping mongodb:%s with url:%v", err.Error(), cfg.DB.DBUrl)
+	}
 
-func (c *conn) DB() *mgo.Database {
-	return c.database
+	log.Printf("successful connected mongodb with url: %v", cfg.DB.DBUrl)
+
+	return client
 }
